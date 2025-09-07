@@ -258,9 +258,20 @@ program
         execSync('npm install lekalo', { stdio: 'inherit' });
       }
       
+      // Remove existing package files before generation
+      const fs = require('fs-extra');
+      const filesToRemove = ['package.json', 'package-lock.json'];
+      
+      console.log(chalk.yellow('🧹 Cleaning up existing files...'));
+      filesToRemove.forEach(file => {
+        if (fs.existsSync(file)) {
+          fs.removeSync(file);
+          console.log(chalk.gray(`   Removed ${file}`));
+        }
+      });
+      
       // Copy template file to current directory
       const templatePath = path.join(__dirname, '.lekalo_templates.yml');
-      const fs = require('fs-extra');
       fs.copyFileSync(templatePath, '.lekalo_templates.yml');
       
       // Build lekalo command
@@ -274,6 +285,13 @@ program
       
       // Execute lekalo command
       execSync(lekaloCommand, { stdio: 'inherit' });
+      
+      // Remove node_modules after generation
+      console.log(chalk.yellow('🧹 Cleaning up node_modules...'));
+      if (fs.existsSync('node_modules')) {
+        fs.removeSync('node_modules');
+        console.log(chalk.gray('   Removed node_modules'));
+      }
       
       console.log(chalk.green('✅ Project created successfully!'));
       console.log(chalk.blue('\n📋 Next steps:'));
