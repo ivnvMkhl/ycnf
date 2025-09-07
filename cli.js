@@ -13,7 +13,7 @@ const program = new Command();
 program
   .name('ycnf')
   .description('CLI utility for managing Yandex Cloud Functions')
-  .version('1.0.0');
+  .version(require('./package.json').version);
 
 // Helper functions
 function loadConfig() {
