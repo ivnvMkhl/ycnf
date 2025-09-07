@@ -6,5 +6,12 @@
   "public": true,
   "logging": true,
   "description": "My Yandex Cloud Function",
-  "entrypoint": "index.handler"
+  "entrypoint": "index.handler",
+  "environment": {
+    "NODE_ENV": "production",
+    "API_KEY": "your-api-key-here"
+  },
+  "tags": ["production", "api"],
+  "serviceAccountId": null,
+  "networkId": null
 }

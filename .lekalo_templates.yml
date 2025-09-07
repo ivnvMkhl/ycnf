@@ -38,7 +38,11 @@ templates:
                 "public": true,
                 "logging": true,
                 "description": "Template function for YCNF CLI",
-                "entrypoint": "index.handler"
+                "entrypoint": "index.handler",
+                "environment": {},
+                "tags": [],
+                "serviceAccountId": null,
+                "networkId": null
               }
 
       deploy:

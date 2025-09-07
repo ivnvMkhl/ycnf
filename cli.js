@@ -153,7 +153,41 @@ program
         ycCommand += ` --description="${config.description}"`;
       }
       
+      // Add environment variables
+      if (config.environment && Object.keys(config.environment).length > 0) {
+        const envVars = Object.entries(config.environment)
+          .map(([key, value]) => `${key}=${value}`)
+          .join(',');
+        ycCommand += ` --environment=${envVars}`;
+      }
+      
+      // Add tags
+      if (config.tags && config.tags.length > 0) {
+        ycCommand += ` --tags=${config.tags.join(',')}`;
+      }
+      
+      // Add service account
+      if (config.serviceAccountId) {
+        ycCommand += ` --service-account-id=${config.serviceAccountId}`;
+      }
+      
+      // Add network
+      if (config.networkId) {
+        ycCommand += ` --network-id=${config.networkId}`;
+      }
+      
       execCommand(ycCommand);
+      
+      // Handle public access setting
+      if (config.public === true) {
+        spinner.text = 'Setting public access...';
+        const publicCommand = `yc serverless function allow-unauthenticated-invoke --name=${functionName} --folder-id=${process.env.YC_FOLDER_ID}`;
+        execCommand(publicCommand, { silent: true });
+      } else if (config.public === false) {
+        spinner.text = 'Removing public access...';
+        const privateCommand = `yc serverless function deny-unauthenticated-invoke --name=${functionName} --folder-id=${process.env.YC_FOLDER_ID}`;
+        execCommand(privateCommand, { silent: true });
+      }
       
       // Clean up
       fs.removeSync(packagePath);

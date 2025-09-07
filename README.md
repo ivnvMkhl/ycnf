@@ -86,9 +86,28 @@ yc init
   "public": true,
   "logging": true,
   "description": "REST API handler with routing",
-  "entrypoint": "index.handler"
+  "entrypoint": "index.handler",
+  "environment": {},
+  "tags": [],
+  "serviceAccountId": null,
+  "networkId": null
 }
 ```
+
+**Параметры конфигурации:**
+
+- `name` - Имя функции (обязательно)
+- `runtime` - Runtime для выполнения (например, "nodejs22")
+- `memory` - Объем памяти в MB
+- `timeout` - Таймаут выполнения в секундах
+- `public` - Публичный доступ к функции (true/false)
+- `logging` - Включить логирование (true/false)
+- `description` - Описание функции
+- `entrypoint` - Точка входа (например, "index.handler")
+- `environment` - Переменные окружения (объект key-value)
+- `tags` - Теги для версии функции (массив строк)
+- `serviceAccountId` - ID сервисного аккаунта (строка или null)
+- `networkId` - ID сети (строка или null)
 
 **Важно:** 
 - Поле `name` обязательно и должно содержать имя функции в Yandex Cloud
@@ -130,7 +149,7 @@ npx ycnf create
 Эта команда создаст:
 - Структуру проекта с папкой `src/`
 - Файл `src/index.js` с базовым обработчиком
-- Конфигурацию `.functionconfig.json`
+- Конфигурацию `.functionconfig.json` с полными параметрами
 - GitHub Actions workflow для автоматического деплоя
 - Файлы `.gitignore`, `package.json`, `README.md`
 
