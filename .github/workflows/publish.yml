@@ -53,9 +53,3 @@ jobs:
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          
-      - name: Verify publication
-        run: |
-          echo "Verifying package publication..."
-          npm view ycnf@${{ steps.version.outputs.version }} version
-          echo "✅ Package ycnf@${{ steps.version.outputs.version }} published successfully!"
