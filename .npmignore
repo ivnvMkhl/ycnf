@@ -1,0 +1,42 @@
+# Development files
+.env
+.functionconfig.json
+src/
+node_modules/
+*.log
+
+# Git files
+.git/
+.gitignore
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+function.zip
+temp/
+*.tmp
+
+# Test files
+test/
+tests/
+*.test.js
+*.spec.js
+validate-package.js
+
+# GitHub Actions (keep in repo, exclude from npm)
+.github/
+
+# Development documentation
+GITHUB_ACTIONS_SETUP.md
+PUBLISH.md
+
+# Documentation (keep README.md and LICENSE)
+docs/

@@ -1,0 +1,13 @@
+.env
+.functionconfig.json
+node_modules/
+*.zip
+*.log
+.DS_Store
+.vscode/
+.idea/
+
+# Temporary files
+function.zip
+temp/
+/src

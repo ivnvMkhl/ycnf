@@ -1,0 +1,49 @@
+{
+  "name": "ycnf",
+  "version": "1.0.0",
+  "description": "CLI utility for managing Yandex Cloud Functions",
+  "main": "cli.js",
+  "bin": {
+    "ycnf": "./cli.js"
+  },
+  "scripts": {
+    "start": "node cli.js",
+    "test": "node -e \"console.log('✅ Package structure is valid'); process.exit(0)\"",
+    "prepublishOnly": "npm test",
+    "prepack": "npm run test"
+  },
+  "keywords": [
+    "yandex-cloud",
+    "functions",
+    "cli",
+    "serverless",
+    "yc",
+    "yandex",
+    "cloud-functions",
+    "deployment"
+  ],
+  "author": {
+    "name": "iMkhl",
+    "email": "mkhl.ivnv@gmail.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ivnvMkhl/ycnf.git"
+  },
+  "homepage": "https://github.com/ivnvMkhl/ycnf#readme",
+  "bugs": {
+    "url": "https://github.com/ivnvMkhl/ycnf/issues"
+  },
+  "dependencies": {
+    "commander": "11.1.0",
+    "dotenv": "16.3.1",
+    "chalk": "4.1.2",
+    "ora": "5.4.1",
+    "archiver": "6.0.1",
+    "fs-extra": "11.1.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

@@ -1,0 +1,242 @@
+#!/usr/bin/env node
+
+const { Command } = require('commander');
+const chalk = require('chalk');
+const ora = require('ora');
+const path = require('path');
+const fs = require('fs-extra');
+require('dotenv').config();
+
+const program = new Command();
+
+// CLI configuration
+program
+  .name('ycnf')
+  .description('CLI utility for managing Yandex Cloud Functions')
+  .version('1.0.0');
+
+// Helper functions
+function loadConfig() {
+  const configPath = path.join(process.cwd(), '.functionconfig.json');
+  if (!fs.existsSync(configPath)) {
+    throw new Error('Configuration file .functionconfig.json not found');
+  }
+  return fs.readJsonSync(configPath);
+}
+
+function validateEnv() {
+  const required = ['YC_FOLDER_ID'];
+  const missing = required.filter(key => !process.env[key]);
+  
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
+}
+
+function getFunctionName(config) {
+  if (!config.name) {
+    throw new Error('Function name is required in .functionconfig.json');
+  }
+  return config.name;
+}
+
+function execCommand(command, options = {}) {
+  const { execSync } = require('child_process');
+  const env = { ...process.env };
+  
+  if (process.env.YC_PROFILE) {
+    env.YC_PROFILE = process.env.YC_PROFILE;
+  }
+  
+  try {
+    return execSync(command, { 
+      encoding: 'utf8', 
+      env,
+      stdio: options.silent ? 'pipe' : 'inherit'
+    });
+  } catch (error) {
+    if (options.silent) {
+      throw error;
+    }
+    console.error(chalk.red(`Error executing command: ${command}`));
+    console.error(chalk.red(error.message));
+    process.exit(1);
+  }
+}
+
+// Public command
+program
+  .command('public')
+  .description('Publish function to Yandex Cloud')
+  .option('-f, --force', 'Force create new version (currently same as regular publish)')
+  .action(async (options) => {
+    const spinner = ora('Publishing function...').start();
+    
+    try {
+      validateEnv();
+      const config = loadConfig();
+      const functionName = getFunctionName(config);
+      
+      // Create deployment package
+      spinner.text = 'Creating deployment package...';
+      const packagePath = path.join(process.cwd(), 'function.zip');
+      
+      // Remove existing package if exists
+      if (fs.existsSync(packagePath)) {
+        fs.removeSync(packagePath);
+      }
+      
+      // Create zip archive
+      const archiver = require('archiver');
+      const output = fs.createWriteStream(packagePath);
+      const archive = archiver('zip', { zlib: { level: 9 } });
+      
+      output.on('close', () => {
+        console.log(chalk.green(`Archive created: ${archive.pointer()} bytes`));
+      });
+      
+      archive.pipe(output);
+      archive.directory('src/', false);
+      
+      // Add package.json if exists in src
+      const srcPackagePath = path.join(process.cwd(), 'src', 'package.json');
+      if (fs.existsSync(srcPackagePath)) {
+        archive.file(srcPackagePath, { name: 'package.json' });
+      }
+      
+      await archive.finalize();
+      
+      // Wait for archive to be ready
+      await new Promise(resolve => output.on('close', resolve));
+      
+      spinner.text = 'Uploading function...';
+      
+      // Build yc command
+      let ycCommand;
+      
+      // Check if function exists
+      let functionExists = false;
+      try {
+        execCommand(`yc serverless function get --name=${functionName} --folder-id=${process.env.YC_FOLDER_ID}`, { silent: true });
+        functionExists = true;
+      } catch (error) {
+        functionExists = false;
+      }
+      
+      if (!functionExists) {
+        // Create new function first
+        spinner.text = 'Creating function...';
+        const createFunctionCommand = `yc serverless function create --name=${functionName} --folder-id=${process.env.YC_FOLDER_ID} --description="${config.description || ''}"`;
+        execCommand(createFunctionCommand, { silent: true });
+      }
+      
+      // Create version (new or update)
+      ycCommand = `yc serverless function version create --function-name=${functionName} --folder-id=${process.env.YC_FOLDER_ID}`;
+      
+      // Add configuration parameters for version
+      ycCommand += ` --runtime=${config.runtime}`;
+      ycCommand += ` --memory=${config.memory}MB`;
+      ycCommand += ` --execution-timeout=${config.timeout}s`;
+      ycCommand += ` --entrypoint=${config.entrypoint}`;
+      ycCommand += ` --source-path=${packagePath}`;
+      
+      if (config.logging === false) {
+        // Explicitly disable logging
+        ycCommand += ' --no-logging';
+      } else if (config.logging === true) {
+        // Use default log group for the folder instead of hardcoded 'default'
+        ycCommand += ` --log-folder-id=${process.env.YC_FOLDER_ID}`;
+      }
+      // If logging is undefined, use default behavior (no explicit flag)
+      
+      if (config.description) {
+        ycCommand += ` --description="${config.description}"`;
+      }
+      
+      execCommand(ycCommand);
+      
+      // Clean up
+      fs.removeSync(packagePath);
+      
+      spinner.succeed(chalk.green('Function published successfully!'));
+      
+    } catch (error) {
+      spinner.fail(chalk.red('Failed to publish function'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+// Delete command
+program
+  .command('delete')
+  .description('Delete function from Yandex Cloud')
+  .option('-f, --force', 'Force delete without confirmation')
+  .action(async (options) => {
+    try {
+      validateEnv();
+      const config = loadConfig();
+      const functionName = getFunctionName(config);
+      
+      if (!options.force) {
+        const readline = require('readline');
+        const rl = readline.createInterface({
+          input: process.stdin,
+          output: process.stdout
+        });
+        
+        const answer = await new Promise(resolve => {
+          rl.question(chalk.yellow(`Are you sure you want to delete function "${functionName}"? (y/N): `), resolve);
+        });
+        
+        rl.close();
+        
+        if (answer.toLowerCase() !== 'y' && answer.toLowerCase() !== 'yes') {
+          console.log(chalk.blue('Operation cancelled'));
+          return;
+        }
+      }
+      
+      const spinner = ora('Deleting function...').start();
+      
+      const ycCommand = `yc serverless function delete --name=${functionName} --folder-id=${process.env.YC_FOLDER_ID}`;
+      execCommand(ycCommand, { silent: true });
+      
+      spinner.succeed(chalk.green('Function deleted successfully!'));
+      
+    } catch (error) {
+      console.error(chalk.red('Failed to delete function'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+// Check command
+program
+  .command('check')
+  .description('Get information about the function')
+  .action(async () => {
+    try {
+      validateEnv();
+      const config = loadConfig();
+      const functionName = getFunctionName(config);
+      
+      const spinner = ora('Getting function information...').start();
+      
+      const ycCommand = `yc serverless function get --name=${functionName} --folder-id=${process.env.YC_FOLDER_ID}`;
+      const result = execCommand(ycCommand, { silent: true });
+      
+      spinner.stop();
+      
+      console.log(chalk.blue('Function Information:'));
+      console.log(result);
+      
+    } catch (error) {
+      console.error(chalk.red('Failed to get function information'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+// Parse command line arguments
+program.parse();

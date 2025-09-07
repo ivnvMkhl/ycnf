@@ -1,0 +1,10 @@
+{
+  "name": "my-function",
+  "runtime": "nodejs22",
+  "memory": 256,
+  "timeout": 60,
+  "public": true,
+  "logging": true,
+  "description": "My Yandex Cloud Function",
+  "entrypoint": "index.handler"
+}
