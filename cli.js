@@ -33,6 +33,64 @@ function validateEnv() {
   }
 }
 
+function maskEnvironmentVariables(text) {
+  // Mask environment variables in command output
+  return text.replace(/--environment=([^,\s]+=[^,\s]+(?:,[^,\s]+=[^,\s]+)*)/g, (match, envVars) => {
+    const maskedVars = envVars.split(',').map(envVar => {
+      const [key, value] = envVar.split('=');
+      return `${key}=***`;
+    }).join(',');
+    return `--environment=${maskedVars}`;
+  });
+}
+
+function maskEnvironmentInJson(text) {
+  // First try to parse as JSON
+  try {
+    const data = JSON.parse(text);
+    if (data.environment && typeof data.environment === 'object') {
+      const maskedEnv = {};
+      Object.keys(data.environment).forEach(key => {
+        maskedEnv[key] = '***';
+      });
+      data.environment = maskedEnv;
+    }
+    return JSON.stringify(data, null, 2);
+  } catch (error) {
+    // If it's not valid JSON, try to mask YAML format
+    return maskEnvironmentInYaml(text);
+  }
+}
+
+function maskEnvironmentInYaml(yamlText) {
+  // Mask environment variables in YAML format
+  return yamlText.replace(/^environment:\s*$/gm, (match) => {
+    return match;
+  }).replace(/^(\s+)([A-Z_][A-Z0-9_]*):\s*(.+)$/gm, (match, indent, key, value) => {
+    // Check if this line is under environment section
+    const lines = yamlText.split('\n');
+    const currentLineIndex = lines.findIndex(line => line.includes(match.trim()));
+    
+    // Look backwards to see if we're under environment section
+    let isUnderEnvironment = false;
+    for (let i = currentLineIndex - 1; i >= 0; i--) {
+      const line = lines[i];
+      if (line.trim() === 'environment:') {
+        isUnderEnvironment = true;
+        break;
+      }
+      if (line.trim() && !line.startsWith(' ')) {
+        break;
+      }
+    }
+    
+    if (isUnderEnvironment) {
+      return `${indent}${key}: ***`;
+    }
+    return match;
+  });
+}
+
 function getFunctionName(config) {
   if (!config.name) {
     throw new Error('Function name is required in .functionconfig.json');
@@ -58,8 +116,8 @@ function execCommand(command, options = {}) {
     if (options.silent) {
       throw error;
     }
-    console.error(chalk.red(`Error executing command: ${command}`));
-    console.error(chalk.red(error.message));
+    console.error(chalk.red(`Error executing command: ${maskEnvironmentVariables(command)}`));
+    console.error(chalk.red(maskEnvironmentVariables(error.message)));
     process.exit(1);
   }
 }
@@ -130,6 +188,30 @@ program
         execCommand(createFunctionCommand, { silent: true });
       }
       
+      // Get environment variables from the latest version if not specified in config
+      let existingEnvironment = {};
+      if (!config.environment || config.environment === null || 
+          (typeof config.environment === 'object' && Object.keys(config.environment).length === 0)) {
+        try {
+          const listCommand = `yc serverless function version list --function-name=${functionName} --folder-id=${process.env.YC_FOLDER_ID} --limit=1 --format=json`;
+          const listResult = execCommand(listCommand, { silent: true });
+          const versions = JSON.parse(listResult);
+          if (versions && versions.length > 0) {
+            const latestVersionId = versions[0].id;
+            const versionCommand = `yc serverless function version get --id=${latestVersionId} --folder-id=${process.env.YC_FOLDER_ID} --format=json`;
+            const versionResult = execCommand(versionCommand, { silent: true });
+            const versionData = JSON.parse(versionResult);
+            if (versionData.environment) {
+              existingEnvironment = versionData.environment;
+              console.log(chalk.gray(`   Preserving environment variables from version: ${latestVersionId}`));
+            }
+          }
+        } catch (error) {
+          // If we can't get the version data, continue without existing environment
+          console.log(chalk.gray('   No previous version found, creating new version'));
+        }
+      }
+      
       // Create version (new or update)
       ycCommand = `yc serverless function version create --function-name=${functionName} --folder-id=${process.env.YC_FOLDER_ID}`;
       
@@ -153,10 +235,19 @@ program
         ycCommand += ` --description="${config.description}"`;
       }
       
-      // Add environment variables (only if explicitly configured)
-      // If environment is null or not specified in config, existing variables in YC will be preserved
+      // Add environment variables
+      let environmentToUse = {};
       if (config.environment && config.environment !== null && typeof config.environment === 'object' && Object.keys(config.environment).length > 0) {
-        const envVars = Object.entries(config.environment)
+        // Use explicitly configured environment variables
+        environmentToUse = config.environment;
+      } else {
+        // Use existing environment variables from previous version
+        environmentToUse = existingEnvironment;
+      }
+      
+      // Add environment variables to command if any exist
+      if (Object.keys(environmentToUse).length > 0) {
+        const envVars = Object.entries(environmentToUse)
           .map(([key, value]) => `${key}=${value}`)
           .join(',');
         ycCommand += ` --environment=${envVars}`;
@@ -177,7 +268,8 @@ program
         ycCommand += ` --network-id=${config.networkId}`;
       }
       
-      execCommand(ycCommand);
+      const result = execCommand(ycCommand, { silent: true });
+      console.log(maskEnvironmentInJson(result));
       
       // Handle public access setting
       if (config.public === true) {
@@ -264,7 +356,7 @@ program
       spinner.stop();
       
       console.log(chalk.blue('Function Information:'));
-      console.log(result);
+      console.log(maskEnvironmentInJson(result));
       
     } catch (error) {
       console.error(chalk.red('Failed to get function information'));
