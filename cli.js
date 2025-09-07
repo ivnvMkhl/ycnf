@@ -286,11 +286,15 @@ program
       // Execute lekalo command
       execSync(lekaloCommand, { stdio: 'inherit' });
       
-      // Remove node_modules after generation
-      console.log(chalk.yellow('🧹 Cleaning up node_modules...'));
+      // Remove node_modules and template file after generation
+      console.log(chalk.yellow('🧹 Cleaning up temporary files...'));
       if (fs.existsSync('node_modules')) {
         fs.removeSync('node_modules');
         console.log(chalk.gray('   Removed node_modules'));
+      }
+      if (fs.existsSync('.lekalo_templates.yml')) {
+        fs.removeSync('.lekalo_templates.yml');
+        console.log(chalk.gray('   Removed .lekalo_templates.yml'));
       }
       
       console.log(chalk.green('✅ Project created successfully!'));

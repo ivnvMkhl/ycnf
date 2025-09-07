@@ -192,5 +192,5 @@ templates:
       .env:
         path: '.env'
         template: |
-            YC_FOLDER_ID={{ name }}
+            YC_FOLDER_ID=yc-folder-id
 
