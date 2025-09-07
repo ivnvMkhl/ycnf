@@ -1,0 +1,196 @@
+templates:
+  template-yc-function:
+    params:
+      - name: 'name'
+        prompt: 'Enter function name'
+    files:
+      functionfile:
+          path: './src/index.js'
+          template: |
+              /**
+              * Template Yandex Cloud Function
+              */
+
+              exports.handler = async (event, context) => {
+
+                  return {
+                      statusCode: 200,
+                      headers: {
+                          'Content-Type': 'application/json',
+                          'Access-Control-Allow-Origin': '*',
+                          'Access-Control-Allow-Headers': 'Content-Type',
+                          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+                      },
+                      body: JSON.stringify({
+                          message: 'Hello from template function!',
+                      })
+                  };
+              };
+
+      functionconfig:
+          path: '.functionconfig.json'
+          template: |
+              {
+                "name": "{{ name }}",
+                "runtime": "nodejs22",
+                "memory": 128,
+                "timeout": 30,
+                "public": true,
+                "logging": true,
+                "description": "Template function for YCNF CLI",
+                "entrypoint": "index.handler"
+              }
+
+      deploy:
+          path: '.github/workflows/deploy.yml'
+          template: |
+              name: Deploy to Yandex Cloud Function
+
+              on:
+                push:
+                  branches: [ main, master ]
+                pull_request:
+                  branches: [ main, master ]
+                workflow_dispatch:
+
+              jobs:
+                deploy:
+                  runs-on: ubuntu-latest
+                  
+                  steps:
+                  - name: Checkout code
+                    uses: actions/checkout@v4
+                    
+                  - name: Setup Node.js
+                    uses: actions/setup-node@v4
+                    with:
+                      node-version: '18'
+                      cache: 'npm'
+                      
+                  - name: Install dependencies
+                    run: npm ci
+                    
+                  - name: Install YCNF CLI
+                    run: npm install -g ycnf
+                    
+                  - name: Setup Yandex Cloud CLI
+                    run: |
+                      # Install YC CLI
+                      curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+                      echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
+                      
+                  - name: Configure Yandex Cloud
+                    run: |
+                      # Create YC config directory
+                      mkdir -p ~/.config/yandex-cloud
+                      
+                      # Create config file with service account key
+                      cat > ~/.config/yandex-cloud/config.yaml << EOF
+                      current: default
+                      profiles:
+                        default:
+                          token: ${% raw %}{{ secrets.YC_TOKEN }}{% endraw %}
+                          cloud-id: ${% raw %}{{ secrets.YC_CLOUD_ID }}{% endraw %}
+                          folder-id: ${% raw %}{{ secrets.YC_FOLDER_ID }}{% endraw %}
+                      EOF
+                      
+                  - name: Create environment file
+                    run: |
+                      echo "YC_FOLDER_ID=${% raw %}{{ secrets.YC_FOLDER_ID }}{% endraw %}" > .env
+                      if [ -n "${% raw %}{{ secrets.YC_PROFILE }}{% endraw %}" ]; then
+                        echo "YC_PROFILE=${% raw %}{{ secrets.YC_PROFILE }}{% endraw %}" >> .env
+                      fi
+                      
+                  - name: Verify YC CLI configuration
+                    run: |
+                      yc config list
+                      
+                  - name: Deploy function
+                    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+                    run: |
+                      echo "Deploying function to Yandex Cloud..."
+                      ycnf public
+                      
+                  - name: Check function status
+                    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+                    run: |
+                      echo "Checking function status..."
+                      ycnf check
+                      
+                  - name: Test deployment (dry run)
+                    if: github.ref != 'refs/heads/main' && github.ref != 'refs/heads/master'
+                    run: |
+                      echo "This is a dry run for PR. Function would be deployed on merge to main."
+                      echo "Function configuration:"
+                      cat .functionconfig.json
+
+      .gitignore:
+          path: '.gitignore'
+          template: |
+              .env
+              node_modules/
+              *.log
+              .DS_Store
+              .vscode/
+              .idea/
+
+              # Temporary files
+              function.zip
+              temp/
+
+      package:
+          path: 'package.json'
+          template: |
+              {
+                "dependencies": {
+                  "ycnf": "^1.0.6"
+                }
+              }
+
+      readme:
+          path: 'README.md'
+          template: |
+              # Template Yandex Cloud Function
+
+              Шаблон для создания репозитория Yandex Cloud Functions и автопубликацией с помощью GitHub Actions и утилиты [ycnf](https://www.npmjs.com/package/ycnf).
+
+              ## Документация
+
+              - [YCNF CLI Documentation](https://www.npmjs.com/package/ycnf) - Документация утилиты ycnf
+              - [Yandex Cloud Functions](https://cloud.yandex.ru/docs/functions/) - Официальная документация
+
+              ## Команды
+
+              ```bash
+              # Публикация функции
+              npx ycnf public
+
+              # Проверка статуса функции
+              npx ycnf check
+
+              # Удаление функции
+              npx ycnf delete
+              ```
+
+              ## Требования для локальной работы
+
+              - Node.js >= 14.0.0
+              - Yandex Cloud CLI
+              - Настроенный аккаунт Yandex Cloud
+              - ID папки в Yandex Cloud в .env (YC_FOLDER_ID)
+
+              ## Настройка автоматического деплоя
+
+              Добавить в Github репозиторий секреты
+
+              ```
+              secrets.YC_TOKEN
+              secrets.YC_CLOUD_ID
+              secrets.YC_FOLDER_ID
+              ```
+
+      .env:
+        path: '.env'
+        template: |
+            YC_FOLDER_ID={{ name }}
+

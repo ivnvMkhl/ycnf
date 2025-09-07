@@ -39,6 +39,7 @@ cp node_modules/ycnf/functionconfig.example.json .functionconfig.json
 
 4. Используйте CLI:
 ```bash
+ycnf create    # Создание нового проекта из шаблона
 ycnf public    # Публикация функции
 ycnf check     # Информация о функции
 ycnf delete    # Удаление функции
@@ -112,6 +113,26 @@ cp /path/to/ycnf/functionconfig.example.json .functionconfig.json
 ```
 
 3. Отредактируйте `.functionconfig.json` под ваши нужды (имя функции, runtime, память и т.д.)
+
+### Создание нового проекта
+
+Для быстрого создания нового проекта Yandex Cloud Function используйте команду `create`:
+
+```bash
+npx ycnf create --name my-function
+```
+
+Или без указания имени (будет запрошено в диалоге):
+```bash
+npx ycnf create
+```
+
+Эта команда создаст:
+- Структуру проекта с папкой `src/`
+- Файл `src/index.js` с базовым обработчиком
+- Конфигурацию `.functionconfig.json`
+- GitHub Actions workflow для автоматического деплоя
+- Файлы `.gitignore`, `package.json`, `README.md`
 
 ### Публикация функции
 ```bash

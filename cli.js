@@ -238,5 +238,58 @@ program
     }
   });
 
+// Create command
+program
+  .command('create')
+  .description('Create a new Yandex Cloud Function project from template')
+  .option('-n, --name <name>', 'Function name (will prompt if not provided)')
+  .action(async (options) => {
+    try {
+      const { execSync } = require('child_process');
+      const path = require('path');
+      
+      console.log(chalk.blue('🚀 Creating new Yandex Cloud Function project...'));
+      
+      // Check if lekalo is available
+      try {
+        execSync('npx lekalo --version', { stdio: 'pipe' });
+      } catch (error) {
+        console.log(chalk.yellow('Installing lekalo...'));
+        execSync('npm install lekalo', { stdio: 'inherit' });
+      }
+      
+      // Copy template file to current directory
+      const templatePath = path.join(__dirname, '.lekalo_templates.yml');
+      const fs = require('fs-extra');
+      fs.copyFileSync(templatePath, '.lekalo_templates.yml');
+      
+      // Build lekalo command
+      let lekaloCommand = 'npx lekalo gen template-yc-function';
+      
+      if (options.name) {
+        lekaloCommand += ` name=${options.name}`;
+      }
+      
+      console.log(chalk.blue('📁 Generating project structure...'));
+      
+      // Execute lekalo command
+      execSync(lekaloCommand, { stdio: 'inherit' });
+      
+      console.log(chalk.green('✅ Project created successfully!'));
+      console.log(chalk.blue('\n📋 Next steps:'));
+      console.log(chalk.white('1. Create .env file with your YC_FOLDER_ID:'));
+      console.log(chalk.gray('   echo "YC_FOLDER_ID=your_folder_id" > .env'));
+      console.log(chalk.white('2. Deploy your function:'));
+      console.log(chalk.gray('   npx ycnf public'));
+      console.log(chalk.white('3. Check function status:'));
+      console.log(chalk.gray('   npx ycnf check'));
+      
+    } catch (error) {
+      console.error(chalk.red('❌ Failed to create project'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
 // Parse command line arguments
 program.parse();
