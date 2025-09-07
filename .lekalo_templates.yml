@@ -39,7 +39,7 @@ templates:
                 "logging": true,
                 "description": "Template function for YCNF CLI",
                 "entrypoint": "index.handler",
-                "environment": {},
+                "environment": null,
                 "tags": [],
                 "serviceAccountId": null,
                 "networkId": null

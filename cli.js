@@ -153,8 +153,9 @@ program
         ycCommand += ` --description="${config.description}"`;
       }
       
-      // Add environment variables
-      if (config.environment && Object.keys(config.environment).length > 0) {
+      // Add environment variables (only if explicitly configured)
+      // If environment is null or not specified in config, existing variables in YC will be preserved
+      if (config.environment && config.environment !== null && typeof config.environment === 'object' && Object.keys(config.environment).length > 0) {
         const envVars = Object.entries(config.environment)
           .map(([key, value]) => `${key}=${value}`)
           .join(',');
